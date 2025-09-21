@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Music, Palette, Utensils, Users, Camera } from 'lucide-react';
-import { CulturalDestination } from '../types/Cultural';
+import { CulturalDestination } from '../types';
 
 interface CultureProps {
   onExploreCulturalDestination: (destination: CulturalDestination) => void;

@@ -1,13 +1,16 @@
 import { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import axios from 'axios';
 import { Destination, WishlistItem } from '../types';
 import { useAuth } from './AuthContext';
 
+// Define the URL for our new wishlist API
+const API_URL = 'http://localhost:5000/api/wishlist';
+
 interface WishlistContextType {
   wishlistItems: WishlistItem[];
-  addToWishlist: (destination: Destination) => boolean;
-  removeFromWishlist: (destinationId: string) => void;
+  addToWishlist: (destination: Destination) => Promise<boolean>;
+  removeFromWishlist: (destinationId: string) => Promise<void>;
   isInWishlist: (destinationId: string) => boolean;
-  clearWishlist: () => void;
 }
 
 interface WishlistProviderProps {
@@ -19,74 +22,88 @@ const WishlistContext = createContext<WishlistContextType | undefined>(undefined
 
 export const WishlistProvider = ({ children, showNotification }: WishlistProviderProps) => {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
-  const { user } = useAuth();
+  const { user, token } = useAuth(); // We need the token for authenticated requests
 
+  // This effect runs when the user logs in or out
   useEffect(() => {
-    if (user) {
-      const storedWishlist = localStorage.getItem(`wishlist_${user.id}`);
-      if (storedWishlist) {
+    const fetchWishlist = async () => {
+      if (user && token) {
         try {
-          const parsedWishlist = JSON.parse(storedWishlist);
-          setWishlistItems(parsedWishlist);
+          // Create headers with the auth token to send to the backend
+          const config = {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          };
+          // Fetch the user's wishlist from the database
+          const response = await axios.get(API_URL, config);
+          setWishlistItems(response.data);
         } catch (error) {
-          console.error('Error parsing wishlist:', error);
+          console.error('Failed to fetch wishlist:', error);
+          showNotification('Could not load your wishlist.', 'error');
         }
+      } else {
+        // If the user logs out, clear the wishlist
+        setWishlistItems([]);
       }
-    } else {
-      setWishlistItems([]);
-    }
-  }, [user]);
-
-  const saveToLocalStorage = (items: WishlistItem[]) => {
-    if (user) {
-      localStorage.setItem(`wishlist_${user.id}`, JSON.stringify(items));
-    }
-  };
-
-  const addToWishlist = (destination: Destination): boolean => {
-    if (!user) {
-      showNotification('Please sign in to add destinations to your wishlist', 'error');
-      return false;
-    }
-
-    const isAlreadyInWishlist = wishlistItems.some(item => item.destination.id === destination.id);
-    
-    if (isAlreadyInWishlist) {
-      showNotification(`${destination.name} is already in your Wishlist.`, 'error');
-      return false;
-    }
-
-    const newWishlistItem: WishlistItem = {
-      id: Date.now().toString(),
-      destination,
-      addedAt: new Date(),
-      userId: user.id
     };
 
-    const updatedWishlist = [...wishlistItems, newWishlistItem];
-    setWishlistItems(updatedWishlist);
-    saveToLocalStorage(updatedWishlist);
-    
-    showNotification(`${destination.name} has been added to your Wishlist!`, 'success');
-    return true;
+    fetchWishlist();
+  }, [user, token, showNotification]);
+
+  const addToWishlist = async (destination: Destination): Promise<boolean> => {
+    if (!user || !token) {
+      showNotification('Please sign in to add to your wishlist', 'error');
+      return false;
+    }
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      // Send the new destination to the backend to be saved in the database
+      const response = await axios.post(API_URL, { destination }, config);
+      
+      // Add the new item (returned from the server) to our local state
+      setWishlistItems(prevItems => [...prevItems, response.data]);
+      showNotification(`${destination.name} added to your wishlist!`, 'success');
+      return true;
+    } catch (error) {
+      console.error('Failed to add to wishlist:', error);
+      showNotification('Could not add item to wishlist.', 'error');
+      return false;
+    }
   };
 
-  const removeFromWishlist = (destinationId: string) => {
-    const updatedWishlist = wishlistItems.filter(item => item.destination.id !== destinationId);
-    setWishlistItems(updatedWishlist);
-    saveToLocalStorage(updatedWishlist);
-    showNotification('Destination removed from wishlist', 'success');
+  const removeFromWishlist = async (destinationId: string) => {
+    if (!token) return;
+
+    // Find the specific wishlist item to get its database ID (_id)
+    const itemToRemove = wishlistItems.find(item => item.destination.id === destinationId);
+    if (!itemToRemove) return;
+
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      // Tell the backend to delete the item with this specific database ID
+      await axios.delete(`${API_URL}/${itemToRemove._id}`, config);
+
+      // Remove the item from our local state to update the UI instantly
+      setWishlistItems(prevItems => prevItems.filter(item => item.destination.id !== destinationId));
+      showNotification('Destination removed from wishlist.', 'success');
+    } catch (error) {
+      console.error('Failed to remove from wishlist:', error);
+      showNotification('Could not remove item from wishlist.', 'error');
+    }
   };
 
   const isInWishlist = (destinationId: string): boolean => {
     return wishlistItems.some(item => item.destination.id === destinationId);
-  };
-
-  const clearWishlist = () => {
-    setWishlistItems([]);
-    if (user) {
-      localStorage.removeItem(`wishlist_${user.id}`);
-    }
   };
 
   return (
@@ -95,7 +112,6 @@ export const WishlistProvider = ({ children, showNotification }: WishlistProvide
       addToWishlist,
       removeFromWishlist,
       isInWishlist,
-      clearWishlist
     }}>
       {children}
     </WishlistContext.Provider>

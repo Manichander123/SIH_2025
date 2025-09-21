@@ -1,9 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: [
+    './index.html', 
+    './src/**/*.{js,ts,jsx,tsx}'
+  ],
   theme: {
     extend: {
-      // Add keyframes for the animation
+      // Keyframes for the notification popup animation
       keyframes: {
         'fade-in-down': {
           '0%': {
@@ -16,11 +19,16 @@ export default {
           },
         }
       },
-      // Add the animation utility
+      // Animation utility for the notification
       animation: {
         'fade-in-down': 'fade-in-down 0.5s ease-out'
       }
     },
   },
-  plugins: [],
+  // This plugins array is essential for extra features
+  plugins: [
+    // This plugin is required for the `prose` class to style the itinerary
+    require('@tailwindcss/typography'),
+  ],
 };
+

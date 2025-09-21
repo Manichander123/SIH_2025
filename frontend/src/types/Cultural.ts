@@ -1,5 +1,5 @@
 export interface CulturalDestination {
-  id: number;
+  id: string;   // 👈 change number → string
   icon: React.ReactNode;
   title: string;
   description: string;

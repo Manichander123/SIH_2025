@@ -1,68 +1,52 @@
+import { ReactElement } from 'react';
+
+// Defines the structure for a single destination
 export interface Destination {
   id: string;
   name: string;
   state: string;
   description: string;
   image: string;
-  highlights: string[];
+  category: 'heritage' | 'nature' | 'adventure' | 'spiritual';
   bestTime: string;
   duration: string;
-  category: 'heritage' | 'nature' | 'adventure' | 'spiritual' | 'modern';
+  highlights: string[];
 }
 
-export interface Experience {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  location: string;
-  duration: string;
-  price: string;
-  category: 'culture' | 'adventure' | 'food' | 'wellness' | 'wildlife';
-}
-
-export interface Hotel {
-  id: string;
-  name: string;
-  location: string;
-  rating: number;
-  price: string;
-  image: string;
-  amenities: string[];
-  description: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string;
-}
-
+// Defines the structure for a user's trip plan
+// This is now updated to match ALL fields from your TripPlanModal
 export interface TripPlan {
   id: string;
-  destination: string;
+  userId: string;
+  destination: string; // Changed from destinations array
   duration: number;
-  budget?: string;
+  budget: string;
   tripType: 'cultural' | 'adventure' | 'spiritual' | 'nature' | 'food';
   safetyMonitoring: boolean;
-  travelers: number;
-  userId: string;
+  numberOfPeople: number;
+  itineraryText: string;
   createdAt: Date;
 }
 
-export interface ItineraryItem {
-  day: number;
-  title: string;
-  description: string;
-  activities: string[];
-  accommodation?: string;
-  meals: string[];
-}
-
+// Defines the structure for an item in the user's wishlist from MongoDB
 export interface WishlistItem {
-  id: string;
+  _id: string; // The ID from the MongoDB database
   destination: Destination;
   addedAt: Date;
   userId: string;
 }
+
+// Defines the structure for a cultural destination
+export interface CulturalDestination {
+  id: string;
+  icon: ReactElement;
+  title: string;
+  description: string;
+  detailedDescription: string;
+  history: string;
+  bestTime: string;
+  duration: string;
+  images: string[];
+  highlights: string[];
+}
+

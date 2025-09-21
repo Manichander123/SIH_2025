@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Destinations from './components/Destinations';
+import Experiences from './components/Experiences';
 import Hotels from './components/Hotels';
 import Culture from './components/Culture';
 import Footer from './components/Footer';
@@ -11,180 +13,180 @@ import AuthModal from './components/AuthModal';
 import TripPlanModal from './components/TripPlanModal';
 import ItineraryPreview from './components/ItineraryPreview';
 import DestinationDetail from './components/DestinationDetail';
-import AllDestinations from './components/AllDestinations';
-import CulturalDestinationDetail from './components/CulturalDestinationDetail';
-import Wishlist from './components/Wishlist';
 import Notification from './components/notification';
+import Wishlist from './components/Wishlist';
+import BookingModal from './components/BookingModal';
 import { Destination, TripPlan } from './types';
 import { CulturalDestination } from './types/Cultural';
 
-// This is a sub-component that has access to the AuthContext
 function AppContent() {
+  // --- STATE MANAGEMENT FOR MODALS ---
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isTripPlanModalOpen, setIsTripPlanModalOpen] = useState(false);
   const [isItineraryPreviewOpen, setIsItineraryPreviewOpen] = useState(false);
   const [isDestinationDetailOpen, setIsDestinationDetailOpen] = useState(false);
-  const [isAllDestinationsOpen, setIsAllDestinationsOpen] = useState(false);
-  const [isCulturalDetailOpen, setIsCulturalDetailOpen] = useState(false);
-  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [selectedDestination, setSelectedDestination] = useState<Destination | null>(null);
-  const [selectedCulturalDestination, setSelectedCulturalDestination] = useState<CulturalDestination | null>(null);
+  const [isWishlistModalOpen, setIsWishlistModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+
+  // --- STATE MANAGEMENT FOR DATA ---
+  const [selectedDestination, setSelectedDestination] = useState<Destination | CulturalDestination | null>(null);
   const [currentTripPlan, setCurrentTripPlan] = useState<TripPlan | null>(null);
-  const { user } = useAuth();
 
-  const handleStartJourney = () => {
-    if (user) {
-      setIsTripPlanModalOpen(true);
-    } else {
-      setIsAuthModalOpen(true);
+  // Auth context
+  const { user, token } = useAuth();
+
+  // Clear trip plan when user logs out
+  useEffect(() => {
+    if (!user) {
+      setCurrentTripPlan(null);
     }
-  };
-  
-  const handleSignInClick = () => {
-    setIsAuthModalOpen(true);
-  };
+  }, [user]);
 
-  const handleWishlistClick = () => {
-    setIsWishlistOpen(true);
-  };
+  // --- HANDLERS ---
+  const handleStartJourney = () =>
+    user ? setIsTripPlanModalOpen(true) : setIsAuthModalOpen(true);
 
-  const handleAuthSuccess = () => {
-    setIsAuthModalOpen(false);
-  };
-
-  const handleTripPlanSubmit = (tripPlanData: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => {
-    const tripPlan: TripPlan = {
-      ...tripPlanData,
-      id: Date.now().toString(),
-      userId: user?.id || '',
-      createdAt: new Date()
-    };
-    setCurrentTripPlan(tripPlan);
-    setIsTripPlanModalOpen(false);
-    setIsItineraryPreviewOpen(true);
-  };
+  const handleSignInClick = () => setIsAuthModalOpen(true);
+  const handleWishlistClick = () => setIsWishlistModalOpen(true);
+  const handleAuthSuccess = () => setIsAuthModalOpen(false);
 
   const handleExploreDestination = (destination: Destination) => {
     setSelectedDestination(destination);
     setIsDestinationDetailOpen(true);
   };
 
-  const handleViewAllDestinations = () => {
-    setIsAllDestinationsOpen(true);
-  };
-
   const handleExploreCulturalDestination = (destination: CulturalDestination) => {
-    setSelectedCulturalDestination(destination);
-    setIsCulturalDetailOpen(true);
+    setSelectedDestination(destination);
+    setIsDestinationDetailOpen(true);
   };
 
-  const handleLogoClick = () => {
-    // Scroll to top of the page (home)
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Close any open modals
-    setIsDestinationDetailOpen(false);
-    setIsAllDestinationsOpen(false);
-    setIsCulturalDetailOpen(false);
-    setIsItineraryPreviewOpen(false);
+  const handleTripPlanSubmit = (tripPlanData: {
+    destination: string;
+    duration: number;
+    budget: string;
+    tripType: 'cultural' | 'adventure' | 'spiritual' | 'nature' | 'food';
+    safetyMonitoring: boolean;
+    numberOfPeople: number;
+  }) => {
+    const tripPlan: TripPlan = {
+      ...tripPlanData,
+      id: currentTripPlan?.id || Date.now().toString(), // ✅ keep same ID if editing
+      userId: user?.id || '',
+      createdAt: currentTripPlan?.createdAt || new Date(), // ✅ preserve original creation date
+      itineraryText: currentTripPlan?.itineraryText || ''
+    };
+    setCurrentTripPlan(tripPlan);
     setIsTripPlanModalOpen(false);
-    setIsWishlistOpen(false);
+    setIsItineraryPreviewOpen(true);
   };
 
-  const handleWishlistPlanTrip = () => {
-    setIsWishlistOpen(false);
-    if (user) {
-      setIsTripPlanModalOpen(true);
-    } else {
-      setIsAuthModalOpen(true);
+  const handleEditTrip = () => {
+    setIsItineraryPreviewOpen(false);
+    setIsTripPlanModalOpen(true); // ✅ opens modal with prefilled data now
+  };
+
+  const handleBookNow = () => {
+    setIsItineraryPreviewOpen(false);
+    setIsBookingModalOpen(true);
+    setCurrentTripPlan(null);
+  };
+
+  const handleSaveItinerary = async (itineraryText: string) => {
+    if (!currentTripPlan || !token) {
+      alert('You must be logged in to save an itinerary.');
+      return;
+    }
+
+    const planToSave = { ...currentTripPlan, itineraryText };
+
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      await axios.post('http://localhost:5000/api/tripplans', planToSave, config);
+      alert('Itinerary saved successfully!');
+      setIsItineraryPreviewOpen(false);
+      setCurrentTripPlan(null);
+    } catch (error) {
+      console.error('Failed to save itinerary:', error);
+      alert('Failed to save itinerary. Please try again.');
     }
   };
 
   return (
     <div className="min-h-screen">
-      <Header 
-        onSignInClick={handleSignInClick} 
-        onLogoClick={handleLogoClick}
-        onWishlistClick={handleWishlistClick}
-      />
+      <Header onSignInClick={handleSignInClick} onWishlistClick={handleWishlistClick} />
       <Hero onStartJourney={handleStartJourney} />
-      <Destinations onExploreDestination={handleExploreDestination} onViewAllDestinations={handleViewAllDestinations} />
+      <Destinations onExploreDestination={handleExploreDestination} />
+      <Experiences />
       <Hotels />
       <Culture onExploreCulturalDestination={handleExploreCulturalDestination} />
       <Footer />
-      
-      <AuthModal 
+
+      {/* Modals */}
+      <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={handleAuthSuccess}
       />
-      
-      <TripPlanModal 
+
+      <Wishlist
+        isOpen={isWishlistModalOpen}
+        onClose={() => setIsWishlistModalOpen(false)}
+        onExploreDestination={handleExploreDestination}
+        onPlanTrip={() => {
+          setIsWishlistModalOpen(false);
+          setIsTripPlanModalOpen(true);
+        }}
+      />
+
+      {/* ✅ Pass existing plan to modal if editing */}
+      <TripPlanModal
         isOpen={isTripPlanModalOpen}
         onClose={() => setIsTripPlanModalOpen(false)}
         onSubmit={handleTripPlanSubmit}
+        initialData={currentTripPlan || undefined}
       />
-      
-      {currentTripPlan && (
-        <ItineraryPreview 
-          isOpen={isItineraryPreviewOpen}
-          onClose={() => setIsItineraryPreviewOpen(false)}
-          tripPlan={currentTripPlan}
-        />
-      )}
-      
-      <DestinationDetail 
+
+      <ItineraryPreview
+        isOpen={isItineraryPreviewOpen}
+        tripPlan={currentTripPlan}
+        onClose={() => setIsItineraryPreviewOpen(false)}
+        onSave={handleSaveItinerary}
+        onEdit={handleEditTrip}
+        onBookNow={handleBookNow}
+      />
+
+      <BookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+      />
+
+      <DestinationDetail
         isOpen={isDestinationDetailOpen}
         onClose={() => setIsDestinationDetailOpen(false)}
         destination={selectedDestination}
-      />
-
-      <AllDestinations 
-        isOpen={isAllDestinationsOpen}
-        onClose={() => setIsAllDestinationsOpen(false)}
-        onExploreDestination={handleExploreDestination}
-      />
-
-      <CulturalDestinationDetail 
-        isOpen={isCulturalDetailOpen}
-        onClose={() => setIsCulturalDetailOpen(false)}
-        destination={selectedCulturalDestination}
-      />
-
-      <Wishlist
-        isOpen={isWishlistOpen}
-        onClose={() => setIsWishlistOpen(false)}
-        onExploreDestination={handleExploreDestination}
-        onPlanTrip={handleWishlistPlanTrip}
       />
     </div>
   );
 }
 
-// This is the main App component that wraps everything
 function App() {
-  // State to manage the notification's visibility and content
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  // Function to show the notification. This gets passed down to AuthProvider.
-  const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+  const showNotification = (message: string, type: 'success' | 'error' = 'success') =>
     setNotification({ message, type });
-  };
-  
+
   return (
-    // The AuthProvider wraps the app and receives the showNotification function
-    <AuthProvider showNotification={showNotification}> 
+    <AuthProvider showNotification={showNotification}>
       <WishlistProvider showNotification={showNotification}>
         <AppContent />
-        
-        {/* Conditionally render the Notification component when there's a message */}
-        {notification && (
-          <Notification
-            message={notification.message}
-            type={notification.type}
-            onClose={() => setNotification(null)}
-          />
-        )}
       </WishlistProvider>
+
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </AuthProvider>
   );
 }

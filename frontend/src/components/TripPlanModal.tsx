@@ -1,23 +1,49 @@
-import React, { useState } from 'react';
-import { X, MapPin, Calendar, Users, DollarSign, Shield, Mountain, Heart, Leaf, Utensils, Sparkles } from 'lucide-react';
-import { TripPlan } from '../types';
+import React, { useState, useEffect } from 'react';
+import {
+  X, MapPin, Calendar, Users, DollarSign, Shield,
+  Mountain, Heart, Leaf, Utensils, Sparkles
+} from 'lucide-react';
+
+interface TripPlanFormData {
+  destination: string;
+  duration: number;
+  budget: string;
+  tripType: 'cultural' | 'adventure' | 'spiritual' | 'nature' | 'food';
+  safetyMonitoring: boolean;
+  numberOfPeople: number;
+}
 
 interface TripPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (tripPlan: Omit<TripPlan, 'id' | 'userId' | 'createdAt'>) => void;
+  onSubmit: (tripPlan: TripPlanFormData) => void;
+  initialData?: TripPlanFormData; // ✅ new optional prop
 }
 
-const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
+const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit, initialData }) => {
+  const initialFormData: TripPlanFormData = {
     destination: '',
     duration: 3,
     budget: '',
-    tripType: 'cultural' as const,
+    tripType: 'cultural',
     safetyMonitoring: false,
-    travelers: 2
-  });
+    numberOfPeople: 2,
+  };
+
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState<TripPlanFormData>(initialFormData);
+
+  // ✅ Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1);
+      if (initialData) {
+        setFormData(initialData); // pre-fill with existing data
+      } else {
+        setFormData(initialFormData); // fresh plan
+      }
+    }
+  }, [isOpen, initialData]);
 
   const indianDestinations = [
     'Agra, Uttar Pradesh', 'Jaipur, Rajasthan', 'Kerala Backwaters', 'Goa', 'Ladakh, Jammu & Kashmir',
@@ -35,20 +61,15 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
 
   if (!isOpen) return null;
 
-  const handleNext = () => {
-    if (step < 3) setStep(step + 1);
-  };
-
-  const handlePrev = () => {
-    if (step > 1) setStep(step - 1);
-  };
+  const handleNext = () => step < 3 && setStep(step + 1);
+  const handlePrev = () => step > 1 && setStep(step - 1);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
   };
 
-  const handleInputChange = (field: string, value: string | number | boolean) => {
+  const handleInputChange = (field: keyof TripPlanFormData, value: string | number | boolean) => {
     setFormData({ ...formData, [field]: value });
   };
 
@@ -95,10 +116,11 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
             </div>
           </div>
 
+          {/* Form */}
           <form onSubmit={handleSubmit}>
-            {/* Step 1: Destination & Duration */}
             {step === 1 && (
               <div className="space-y-6">
+                {/* Destination */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     <MapPin className="w-4 h-4 inline mr-2" />
@@ -117,6 +139,7 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
                   </select>
                 </div>
 
+                {/* Duration */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     <Calendar className="w-4 h-4 inline mr-2" />
@@ -135,19 +158,12 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
                     <span>21 days</span>
                   </div>
                 </div>
-
-                <div className="bg-orange-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-2">✨ Did you know?</h4>
-                  <p className="text-orange-700 text-sm">
-                    India has 38 UNESCO World Heritage Sites, making it perfect for cultural exploration!
-                  </p>
-                </div>
               </div>
             )}
 
-            {/* Step 2: Trip Type & Budget */}
             {step === 2 && (
               <div className="space-y-6">
+                {/* Trip Type */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-4">
                     What type of experience are you looking for?
@@ -170,13 +186,6 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
                           </div>
                           <div>
                             <h4 className="font-semibold text-gray-800">{type.name}</h4>
-                            <p className="text-sm text-gray-600">
-                              {type.id === 'cultural' && 'Heritage sites, temples, local traditions'}
-                              {type.id === 'adventure' && 'Trekking, rafting, mountain climbing'}
-                              {type.id === 'spiritual' && 'Meditation, yoga, sacred places'}
-                              {type.id === 'nature' && 'Wildlife, beaches, hill stations'}
-                              {type.id === 'food' && 'Street food, cooking classes, local cuisine'}
-                            </p>
                           </div>
                         </div>
                       </button>
@@ -184,6 +193,7 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
                   </div>
                 </div>
 
+                {/* Budget */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     <DollarSign className="w-4 h-4 inline mr-2" />
@@ -203,20 +213,20 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
               </div>
             )}
 
-            {/* Step 3: Travelers & Safety */}
             {step === 3 && (
               <div className="space-y-6">
+                {/* Travelers */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     <Users className="w-4 h-4 inline mr-2" />
-                    Number of travelers ({formData.travelers} people)
+                    Number of travelers ({formData.numberOfPeople} people)
                   </label>
                   <input
                     type="range"
                     min="1"
                     max="10"
-                    value={formData.travelers}
-                    onChange={(e) => handleInputChange('travelers', parseInt(e.target.value))}
+                    value={formData.numberOfPeople}
+                    onChange={(e) => handleInputChange('numberOfPeople', parseInt(e.target.value))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                   />
                   <div className="flex justify-between text-sm text-gray-600 mt-2">
@@ -225,42 +235,25 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
                   </div>
                 </div>
 
+                {/* Safety Monitoring */}
                 <div className="bg-blue-50 rounded-lg p-4">
                   <div className="flex items-start space-x-3">
                     <Shield className="w-5 h-5 text-blue-600 mt-1" />
-                    <div className="flex-1">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.safetyMonitoring}
-                          onChange={(e) => handleInputChange('safetyMonitoring', e.target.checked)}
-                          className="mr-3 w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
-                        />
-                        <div>
-                          <span className="font-semibold text-blue-800">Enable Safety Monitoring</span>
-                          <p className="text-sm text-blue-700 mt-1">
-                            Get real-time safety updates, emergency contacts, and travel advisories for your destination.
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-2">🌟 Your Trip Summary</h4>
-                  <div className="space-y-1 text-sm text-green-700">
-                    <p><strong>Destination:</strong> {formData.destination}</p>
-                    <p><strong>Duration:</strong> {formData.duration} days</p>
-                    <p><strong>Trip Type:</strong> {tripTypes.find(t => t.id === formData.tripType)?.name}</p>
-                    <p><strong>Travelers:</strong> {formData.travelers} people</p>
-                    {formData.budget && <p><strong>Budget:</strong> {formData.budget}</p>}
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.safetyMonitoring}
+                        onChange={(e) => handleInputChange('safetyMonitoring', e.target.checked)}
+                        className="mr-3 w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
+                      />
+                      <span className="font-semibold text-blue-800">Enable Safety Monitoring</span>
+                    </label>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Navigation Buttons */}
+            {/* Navigation */}
             <div className="flex justify-between mt-8">
               <button
                 type="button"
@@ -270,7 +263,6 @@ const TripPlanModal: React.FC<TripPlanModalProps> = ({ isOpen, onClose, onSubmit
               >
                 Previous
               </button>
-              
               {step < 3 ? (
                 <button
                   type="button"
